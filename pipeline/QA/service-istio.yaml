@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eosclin-storage-service-sa
+  labels:
+    account: eosclin-storage-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eosclin-storage-service
+  labels:
+    app: eosclin-storage-service
+    service: eosclin-storage-service
+spec:
+  ports:
+  - name: http
+    port: 8080
+  selector:
+    app: eosclin-storage-service

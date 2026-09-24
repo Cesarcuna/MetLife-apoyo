@@ -1,0 +1,69 @@
+sequenceDiagram
+
+    participant Scheduler
+    participant StorageAPI as Storage API
+    participant KeyVault as Secrets/Key Vault
+    participant Blob as Azure Blob
+    participant Soyio as Soyio API
+    participant CDZ as CDZ/DataHub
+
+    Scheduler->>StorageAPI: POST /v1/domain/storage/soyio/sync
+
+    StorageAPI->>KeyVault: Retrieve SOYIO_API_KEY
+    KeyVault-->>StorageAPI: API Key
+
+    alt 401/403
+        KeyVault-->>StorageAPI: Authentication/Authorization Error
+        StorageAPI-->>Scheduler: Sync Failed
+    else Credentials OK
+
+        StorageAPI->>Blob: Read watermark.json
+        Blob-->>StorageAPI: Last successful watermark
+
+        StorageAPI->>StorageAPI: Calculate incremental window + overlap
+
+        StorageAPI->>Soyio: POST /api/v1/exports
+        Soyio-->>StorageAPI: export_id
+
+        loop Poll until completed/failed/timeout
+            StorageAPI->>Soyio: GET /api/v1/exports/{id}
+            Soyio-->>StorageAPI: status
+        end
+
+        alt export.failed
+            Soyio-->>StorageAPI: failed
+            StorageAPI-->>Scheduler: export.failed
+
+        else timeout
+            StorageAPI-->>Scheduler: timeout
+
+        else completed
+
+            StorageAPI->>Soyio: Download from download_url
+            Soyio-->>StorageAPI: Export file
+
+            StorageAPI->>StorageAPI: Validate soyio.max-download-bytes
+
+            alt File exceeds limit
+                StorageAPI-->>Scheduler: File exceeds soyio.max-download-bytes
+
+            else Valid size
+
+                StorageAPI->>CDZ: Upload dataset
+                alt Upload failed
+                    CDZ-->>StorageAPI: Upload error
+                    StorageAPI-->>Scheduler: CDZ upload failure
+
+                else Upload successful
+                    CDZ-->>StorageAPI: Success
+
+                    Note over StorageAPI,Blob: Regla critica: watermark solo avanza en corrida exitosa
+
+                    StorageAPI->>Blob: Update watermark.json
+                    Blob-->>StorageAPI: Success
+
+                    StorageAPI-->>Scheduler: Sync Completed
+                end
+            end
+        end
+    end

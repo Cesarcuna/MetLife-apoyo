@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eosclin-storage-service
+  labels:
+    app: eosclin-storage-service
+spec:
+  selector:
+    matchLabels:
+      app: eosclin-storage-service
+  minReadySeconds: 60
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: eosclin-storage-service
+    spec:
+      serviceAccountName: sa-aksruntime-prod
+      restartPolicy: Always
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: agentpool
+                operator: In
+                values:
+                - agentpool
+      containers:
+      - name: eosclin-storage-service
+        image: acr13545e1pr01.azurecr.io/acr13545e1pr01.metlife.com/13545-chile/api_storage_domain:$(BuildId)
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "150m"
+            memory: "768Mi"
+          limits:
+            cpu: "750m"
+            memory: "2Gi"
+        # AKS root compliace: https://metlifeprod.service-now.com/now/nav/ui/classic/params/target/kb_view.do%3Fsysparm_article%3DKB0254935
+        securityContext:
+          runAsUser: 1000  # UID of the non-root user
+          runAsGroup: 1000 # GID of the non-root user
+          runAsNonRoot: true  # Ensure the container runs as a non-root user
+          allowPrivilegeEscalation: false  # Prevent privilege escalation
+        ports:
+          - containerPort: 8080
+            name: http
+
+        # 1) startupProbe: darle tiempo a Spring Boot para levantar
+        startupProbe:
+          httpGet:
+            path: /v1/domain/storage/healthcheck
+            port: http
+          initialDelaySeconds: 30       # espera 30s antes del primer intento
+          periodSeconds: 10             # cada 10s intenta
+          timeoutSeconds: 5
+          failureThreshold: 30          # 30 * 10s = hasta ~5 minutos para arrancar
+
+        # 2) livenessProbe: solo para detectar cuando la app ya levantada se cuelga
+        livenessProbe:
+          httpGet:
+            path: /v1/domain/storage/healthcheck
+            port: http
+          initialDelaySeconds: 180      # empieza a checar hasta 3 min después
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        # 3) readinessProbe: para saber cuándo puede recibir tráfico
+        readinessProbe:
+          httpGet:
+            path: /v1/domain/storage/healthcheck
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          
+        env:
+          - name: SPRING_PROFILES_ACTIVE
+            value: prod

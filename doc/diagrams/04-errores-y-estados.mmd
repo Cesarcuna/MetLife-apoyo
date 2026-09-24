@@ -1,0 +1,18 @@
+stateDiagram-v2
+    [*] --> started
+    started --> exporting: configuracion valida
+    exporting --> polling: export creado
+    polling --> downloading: status completed
+    polling --> failed: failed o timeout
+    downloading --> raw_saved: carga RDZ OK
+    downloading --> failed: descarga/carga falla
+    raw_saved --> resolving: token obtenido
+    resolving --> normalizing: referencias procesadas
+    normalizing --> normalized_saved: carga DDZ OK
+    normalized_saved --> completed: sin errores por fila
+    normalized_saved --> completed_with_errors: invalid_format o API errors
+    normalized_saved --> failed: marcador o control falla
+    completed --> watermark_updated
+    completed_with_errors --> watermark_updated
+    watermark_updated --> [*]
+    failed --> [*]

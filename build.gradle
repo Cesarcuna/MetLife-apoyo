@@ -1,0 +1,153 @@
+plugins {
+    id 'groovy'
+    id 'org.springframework.boot' version '4.1.0'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = group
+base.archivesName = publishName
+version = hasProperty('buildVersion') ? "${buildVersion}" : '0.1.0'
+
+java {
+    sourceCompatibility = JavaVersion.toVersion(javaSourceVersion)
+    targetCompatibility = JavaVersion.toVersion(javaTargetVersion)
+}
+
+configurations.configureEach {
+
+    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+
+        if (details.requested.group == 'org.apache.tomcat.embed') {
+            details.useVersion tomcatEmbedVersion
+        }
+    }
+
+    exclude module: 'spring-boot-starter-logging'
+    exclude group: 'ch.qos.logback', module: 'logback-classic'
+    exclude group: 'ch.qos.logback', module: 'logback-core'
+    exclude group: 'org.simpleframework', module: 'simple-xml'
+    exclude group: 'com.thoughtworks.xstream', module: 'xstream'
+    exclude group: 'com.google.protobuf', module: 'protobuf-java'
+    exclude group: 'commons-lang', module: 'commons-lang'
+    exclude group: 'commons-configuration', module: 'commons-configuration'
+}
+
+ext {
+    gsspBomVersion = '5.1.0'
+    tomcatEmbedVersion = '11.0.25'
+    jackson2Version = '2.22.1'
+    jackson3Version = '3.1.5'
+    log4jVersion = '2.25.5'
+    nettyBomVersion = '4.2.17.Final'
+    rabbitmqClientVersion = '5.33.1'
+    httpComponentsCoreVersion = '5.4.3'
+    httpComponentsClientVersion = '5.6.3'
+    springBootVersion = '4.1.0'
+    springFrameworkVersion = '7.0.9'
+    githubHandlebarsVersion = '4.5.2'
+    bouncyCastleVersion = '1.85'
+}
+
+springBoot {
+    mainClass = "com.metlife.gssp.Application"
+    buildInfo()
+}
+
+dependencyManagement {
+    imports {
+
+        mavenBom "com.metlife.nano.framework:gssp-framework-bom:${gsspBomVersion}"
+
+        mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+
+        mavenBom "org.springframework:spring-framework-bom:${springFrameworkVersion}"
+
+        // Security pinning for vulnerable transitive libs
+        mavenBom "com.fasterxml.jackson:jackson-bom:${jackson2Version}"
+
+        mavenBom "tools.jackson:jackson-bom:${jackson3Version}"
+        mavenBom "org.apache.logging.log4j:log4j-bom:${log4jVersion}"
+
+        mavenBom "io.netty:netty-bom:${nettyBomVersion}"
+    }
+
+    dependencies {
+        dependency "com.github.jknack:handlebars:${githubHandlebarsVersion}"
+        dependency "com.fasterxml.jackson.core:jackson-databind:${jackson2Version}"
+        dependency "tools.jackson.core:jackson-databind:${jackson3Version}"
+        dependency "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+        dependency "com.rabbitmq:amqp-client:${rabbitmqClientVersion}"
+        dependency "org.apache.httpcomponents.core5:httpcore5:${httpComponentsCoreVersion}"
+        dependency "org.apache.httpcomponents.core5:httpcore5-h2:${httpComponentsCoreVersion}"
+        dependency "org.apache.httpcomponents.client5:httpclient5:${httpComponentsClientVersion}"
+        dependency "org.bouncycastle:bcprov-jdk18on:${bouncyCastleVersion}"
+        dependency "org.bouncycastle:bcpkix-jdk18on:${bouncyCastleVersion}"
+        dependency "org.bouncycastle:bcutil-jdk18on:${bouncyCastleVersion}"
+    }
+}
+
+dependencies {
+
+    // Nano framework 5.1.0
+    implementation ('com.metlife.nano.framework:gssp-spring-cloud-kubernetes') {
+        exclude group: 'commons-configuration', module: 'commons-configuration'
+    }
+
+    implementation 'com.metlife.nano.framework:gssp-azure-cloud'
+
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.apache.groovy:groovy-json'
+
+    // NOTE: keep azure-core because EOSUtils imports com.azure.core.* classes directly.
+    implementation 'com.azure:azure-core:1.56.0'
+}
+
+repositories {
+    maven {
+        credentials {
+
+            def artifactoryUser = project.findProperty('artifactoryUser')
+                    ?: System.getenv('artifactoryUser')
+
+            def artifactoryPassword = project.findProperty('artifactoryPassword')
+                    ?: System.getenv('artifactoryPassword')
+
+            if (artifactoryUser != null && artifactoryPassword != null) {
+                username "${artifactoryUser}"
+                password "${artifactoryPassword}"
+            } else {
+                throw new GradleException(
+                    "Environment variables 'artifactoryUser' and 'artifactoryPassword' not found."
+                )
+            }
+        }
+        url "${artifactory_contextUrl}/libs-release"
+    }
+}
+
+sourceSets {
+    main {
+        groovy { srcDirs += ['src/dynamic/workflow'] }
+        groovy { srcDirs += ['src/main/groovy'] }
+    }
+}
+
+tasks.register('tar', Tar) {
+    archiveBaseName = base.archivesName.get()
+    destinationDirectory = layout.buildDirectory
+    archiveExtension = 'tgz'
+    compression = Compression.GZIP
+
+    from projectDir
+    include 'src/***/**/*'
+    exclude '**/*.groovy', '**/*.java'
+
+    archiveClassifier = ''
+
+    jar.enabled = false
+}
+
+tasks.named('build') {
+    dependsOn tasks.named('tar')
+}

@@ -1,0 +1,76 @@
+flowchart LR
+
+    subgraph Scheduler
+        SCH[Scheduler 6h]
+    end
+
+    subgraph "Storage API"
+        SYNC["POST /v1/domain/storage/soyio/sync"]
+        STATUS["GET /v1/domain/storage/soyio/sync/status"]
+        WATERMARK["Read watermark.json"]
+        WINDOW["Calculate incremental window + overlap"]
+        EXPORT["Create Soyio export"]
+        POLL["Poll export status"]
+        DOWNLOAD["Download export file"]
+        UPLOAD["Upload dataset to CDZ"]
+        UPDATEWM["Update watermark.json"]
+    end
+
+    subgraph "Secrets / Key Vault"
+        KV["SOYIO_API_KEY"]
+    end
+
+    subgraph "Soyio API"
+        CREATE["POST /api/v1/exports"]
+        CHECK["GET /api/v1/exports/{id}"]
+        FILE["download_url"]
+    end
+
+    subgraph "Azure Blob / CDZ"
+        BLOB["watermark.json"]
+        CDZ["CDZ / DataHub Dataset"]
+    end
+
+    SCH --> SYNC
+
+    STATUS -. Status Query .-> SYNC
+
+    SYNC --> KV
+    KV --> SYNC
+
+    SYNC --> WATERMARK
+    WATERMARK --> BLOB
+    BLOB --> WATERMARK
+
+    WATERMARK --> WINDOW
+    WINDOW --> EXPORT
+
+    EXPORT --> CREATE
+    CREATE --> POLL
+
+    POLL --> CHECK
+    CHECK --> POLL
+
+    POLL -->|completed| DOWNLOAD
+    POLL -->|failed| FAIL1[export.failed]
+    POLL -->|timeout| FAIL2[timeout]
+
+    DOWNLOAD --> FILE
+    FILE --> DOWNLOAD
+
+    DOWNLOAD --> SIZECHECK{File size <= soyio.max-download-bytes?}
+
+    SIZECHECK -->|No| FAIL3[File exceeds soyio.max-download-bytes]
+    SIZECHECK -->|Yes| UPLOAD
+
+    UPLOAD --> CDZ
+
+    UPLOAD -->|success| UPDATEWM
+    UPDATEWM --> BLOB
+
+    UPLOAD -->|failure| FAIL4[CDZ upload failure]
+
+    KV -->|401/403| FAIL5[Authentication or Authorization Error]
+
+    classDef error fill:#ffe5e5,stroke:#cc0000,color:#000;
+    class FAIL1,FAIL2,FAIL3,FAIL4,FAIL5 error;

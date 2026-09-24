@@ -1,0 +1,19 @@
+flowchart LR
+    A[Agreement original] --> B[Parse CSV]
+    B --> C[data_permissions JSON]
+    C --> D{Tiene permisos?}
+    D -- Si --> E[Una fila por permiso]
+    D -- No --> F[Fila de evento]
+    E --> G[Resolver user_reference]
+    F --> G
+    G --> H{Formato valido?}
+    H -- No --> I[rut vacio + invalid_format]
+    H -- Si --> J[POST resolve]
+    J --> K{Respuesta API}
+    K -- 200 --> L[rut exacto + rut_normalized si aplica]
+    K -- 400/401/403/429/5xx --> M[resolution_error por fila]
+    I --> N[CSV normalizado]
+    L --> N
+    M --> N
+    F --> O[consent_status=revoked si corresponde]
+    O --> N

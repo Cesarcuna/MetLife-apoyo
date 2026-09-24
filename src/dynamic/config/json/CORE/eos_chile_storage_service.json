@@ -1,0 +1,69 @@
+{
+	"tenantId": "CLIN",
+	"tenantCountry": "CL",
+	"patterns": {
+		"sendFile": "/v1/domain/storage/sendFile",
+		"retrieveFile": "/v1/domain/storage/retrieveFile",
+		"listFiles": "/v1/domain/storage/listFiles",
+		"healthCheck": "/v1/domain/storage/healthcheck",
+		"sendFileMultipart": "/v1/domain/storage/sendFileMultipart",
+		"soyioApiKeys": "/v1/domain/storage/soyio/api-keys",
+		"soyioSync": "/v1/domain/storage/soyio/sync",
+		"soyioSyncStatus": "/v1/domain/storage/soyio/sync/status"
+	},
+	"methodDefinitions": {
+		"sendFile": {
+			"POST": [
+				"groovy.CLIN.SetLoggingContext",
+				"groovy.CLIN.SendFile"
+			]
+		},
+		"retrieveFile": {
+			"GET": [
+				"groovy.CLIN.SetLoggingContext",
+				"groovy.CLIN.RetrieveFile"
+			]
+		},
+		"listFiles": {
+			"GET": [
+				"groovy.CLIN.SetLoggingContext",
+				"groovy.CLIN.ListFiles"
+			]
+		},
+		"healthCheck": {
+			"GET": [
+				"groovy.CLIN.HealthCheck"
+			]
+		},
+		"sendFileMultipart": {
+			"POST": [
+				"groovy.CLIN.SetLoggingContext",
+				"groovy.CLIN.SendFileMultipart"
+			]
+		},
+		"soyioApiKeys": {
+			"GET": [
+				"groovy.CLIN.SetLoggingContext",
+				"groovy.CLIN.SoyioListApiKeys"
+			]
+		},
+		"soyioSync": {
+			"POST": [
+				"groovy.CLIN.SetLoggingContext",
+				"groovy.CLIN.SoyioSync"
+			]
+		},
+		"soyioSyncStatus": {
+			"GET": [
+				"groovy.CLIN.SetLoggingContext",
+				"groovy.CLIN.SoyioSyncStatus"
+			]
+		}
+	},
+	"errorCodes": {
+		"GENERAL_ERROR": {
+			"statusCode": "500",
+			"message": "Unable to create context"
+		}
+	}
+}

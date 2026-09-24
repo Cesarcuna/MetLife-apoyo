@@ -1,0 +1,32 @@
+flowchart LR
+    SCH[Scheduler externo cada 6 horas] --> API[POST /v1/domain/storage/soyio/sync]
+
+    subgraph STORAGE[Azure Storage]
+        RDZ[(RDZ - CSV crudo)]
+        DDZ[(DDZ - CSV normalizado)]
+        CDZ[(CDZ - watermark e historial)]
+    end
+
+    subgraph SERVICE[Storage Service]
+        ORCH[Orquestador SoyioSync]
+        TRANS[SoyioAgreementTransformer]
+        RES[Resolucion segmentada]
+    end
+
+    SOYIO[Soyio API]
+    REF[User Reference API]
+    AUTH[Entra ID + client assertion]
+
+    API --> ORCH
+    ORCH --> CDZ
+    ORCH --> SOYIO
+    SOYIO --> ORCH
+    ORCH --> RDZ
+    RDZ --> TRANS
+    TRANS --> RES
+    AUTH --> RES
+    RES --> REF
+    REF --> RES
+    RES --> DDZ
+    DDZ --> CDZ
+    ORCH --> CDZ

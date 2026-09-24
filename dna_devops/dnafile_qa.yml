@@ -1,0 +1,76 @@
+# DNAFILE.YML 
+# -----------
+# This file is the main file that needs to be included on every repo that uses APIS with templated pipelines.
+# It should not be modified, except from DEVOPS teams. 
+# This DNAFILE.YML should remain as it is, with no changes.
+# Author: DNA COE DevSecOps Team
+
+name: $(SourceBranchName)_$(name_pl)_$(date:yyyyMMdd)$(rev:.r)
+
+schedules:
+  - cron: "20 23 * * 5" 
+    displayName: "Run at 8.20 PM tiempo Chile - 23.20 hrs UTC"
+    branches:
+      include:
+        - Release/qa
+    always: true
+
+# Indicates the auto execution for the included branches, there is no need to exclude, except in cases with same branch name like release/qa and Release/qa
+# Please put only the 4 required environments in include. Don't add PR, Bugfix or Hotfix, as they will execute once merged into one of the 4 required envs.
+trigger:
+  branches:
+    include:
+    - Release/qa
+  paths:
+    exclude:
+     - dna_devops/*
+
+# Use self to reference to DEVELOPMENT repo, and devops_repo for the place where the TEMPLATES resides
+resources: 
+   repositories:
+   # DNA Team Repo
+   - repository: self
+     name: $(project_ext)/$(repo_ext)
+     type: github
+     endpoint: github.com_MetLife-Global
+     ref: $(branch_ext)
+   # DNA DevOps Repo
+   - repository: devops_repo
+     name: 'MetLife-Global/13545_Chile-Insurance-DataHub-Pipelines'
+     type: github
+     endpoint: github.com_MetLife-Global
+     ref: 'refs/heads/feature_create_pipelines_chile'
+   # DNA 
+   - repository: templates
+     name: DevOps-Patterns-Practices-Examples/Pipeline-Foundation
+     ref: refs/tags/v1.2.0
+     type: git
+
+# This defines the poolname to be used, can be overriden internally on some templates
+pool:
+  name: Auto-Scaling-Agents-Linux
+
+# Load Variables from different files depending of the SourceBranchName     
+variables:
+- ${{ if eq(variables['Build.SourceBranchName'], 'enable_devops_template') }}: 
+   - template: variables/${{ variables['Build.Repository.Name'] }}/variables_development.yml@devops_repo
+- ${{ elseif eq(variables['Build.SourceBranchName'], 'develop') }}: 
+   - template: variables/${{ variables['Build.Repository.Name'] }}/variables_development.yml@devops_repo
+- ${{ elseif eq(variables['Build.SourceBranchName'], 'int') }}:
+   - template: variables/${{ variables['Build.Repository.Name'] }}/variables_testing.yml@devops_repo
+- ${{ elseif eq(variables['Build.SourceBranchName'], 'qa') }}: 
+   - template: variables/${{ variables['Build.Repository.Name'] }}/variables_preprod.yml@devops_repo
+- ${{ elseif eq(variables['Build.SourceBranchName'], 'main') }}: 
+   - template: variables/${{ variables['Build.Repository.Name'] }}/variables_prod.yml@devops_repo
+- ${{ else }}: 
+   - template: variables/${{ variables['Build.Repository.Name'] }}/variables_development.yml@devops_repo
+- group: 13545_VeracodePAT
+- group: 13545_AZDO_TOKENS
+- group: PRISMA_CLOUD
+
+# Eventought we reference Stages here, there is only one template needed, the receiver. That will handle all the stages for all APIS.
+# The parameters are only needed in special cases where variables are not enought, like with the secure files. In case you use Params 
+# remember to cascade them to all the nested templates.
+
+stages:
+- template: templates/api_services/apis-template-receiver.yml@devops_repo

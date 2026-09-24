@@ -1,0 +1,20 @@
+flowchart TD
+    A[Inicio runId] --> B[Leer watermark CDZ]
+    B --> C[Calcular ventana UTC + overlap]
+    C --> D{Ventana valida?}
+    D -- No --> E[Responder no-op]
+    D -- Si --> F[Crear exportacion Soyio]
+    F --> G[Polling hasta completed/failed/timeout]
+    G --> H{Completed?}
+    H -- No --> X[Error critico, no avanzar watermark]
+    H -- Si --> I[Descargar CSV]
+    I --> J[Guardar CSV crudo en RDZ]
+    J --> K[Autenticar User Reference]
+    K --> L[Segmentar referencias validas]
+    L --> M[Resolver referencias con reintentos]
+    M --> N[Expandir data_permissions]
+    N --> O[Conservar errores y revocaciones]
+    O --> P[Guardar CSV normalizado en DDZ]
+    P --> Q[Escribir _SUCCESS]
+    Q --> R[Actualizar watermark e historial]
+    R --> S[Responder completed o completed_with_errors]

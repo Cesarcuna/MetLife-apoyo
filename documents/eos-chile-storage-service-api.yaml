@@ -1,0 +1,596 @@
+openapi: 3.0.3
+info:
+  title: "13545 Chile Data Hub Storage Service"
+  description: |-
+    Service for storing, retrieving, and listing files in Azure Blob Storage.
+    <p><h3>Version 1.1.0</h3>
+    <ul>
+    <li>Base endpoints for Send, Retrieve, List and Multipart upload.</li>
+    <li>Design contract for Soyio incremental sync orchestration.</li>
+    </ul></p>
+  version: 1.1.0
+  contact:
+    name: MetLife Chile
+    url: https://www.metlife.cl
+    email: api_support@metlife.com
+
+tags:
+  - name: Files
+    description: Operaciones para la gestion de archivos en Azure Blob Storage
+  - name: Soyio Sync
+    description: Orquestacion de exportaciones Soyio hacia CDZ/DataHub
+
+servers:
+  - url: https://latam.dev.internal.apis.metlife.com/chile/insurance/api/storage
+    description: Development Server
+  - url: https://latam.int.internal.apis.metlife.com/chile/insurance/api/storage
+    description: Integration Server
+  - url: https://latam.qa.internal.apis.metlife.com/chile/insurance/api/storage
+    description: QA Server
+  - url: https://latam.internal.apis.metlife.com/chile/insurance/api/storage
+    description: Production Server
+
+paths:
+  /v1/domain/storage/sendFile:
+    post:
+      operationId: sendFile
+      tags:
+        - Files
+      summary: Uploads a file to a specific container (Base64)
+      description: Receives a JSON with file details and saves it in Azure Storage.
+      parameters:
+        - $ref: "#/components/parameters/Authorization"
+        - $ref: "#/components/parameters/Ocp-Apim-Subscription-Key"
+        - $ref: "#/components/parameters/x-gssp-transactionid"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/sendFileRequestBody"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/sendFileResponse"
+        "400":
+          $ref: "#/components/responses/errorResponse"
+        "404":
+          $ref: "#/components/responses/errorResponse"
+        "500":
+          $ref: "#/components/responses/errorResponse"
+
+  /v1/domain/storage/sendFileMultipart:
+    post:
+      operationId: sendFileMultipart
+      tags:
+        - Files
+      summary: Uploads a file using Multipart Form Data
+      description: Most efficient method to stream binary data directly to Azure Storage.
+      parameters:
+        - $ref: "#/components/parameters/Authorization"
+        - $ref: "#/components/parameters/Ocp-Apim-Subscription-Key"
+        - $ref: "#/components/parameters/x-gssp-transactionid"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/sendFileMultipartRequestBody"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/sendFileResponse"
+        "400":
+          $ref: "#/components/responses/errorResponse"
+        "500":
+          $ref: "#/components/responses/errorResponse"
+
+  /v1/domain/storage/retrieveFile:
+    get:
+      operationId: retrieveFile
+      tags:
+        - Files
+      summary: Retrieves a file in Base64 format
+      description: Downloads the requested file from Blob Storage.
+      parameters:
+        - $ref: "#/components/parameters/Authorization"
+        - $ref: "#/components/parameters/Ocp-Apim-Subscription-Key"
+        - $ref: "#/components/parameters/x-gssp-transactionid"
+        - $ref: "#/components/parameters/containerName"
+        - $ref: "#/components/parameters/entityId"
+        - $ref: "#/components/parameters/fileName"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/retrieveFileResponse"
+        "400":
+          $ref: "#/components/responses/errorResponse"
+        "404":
+          $ref: "#/components/responses/errorResponse"
+        "500":
+          $ref: "#/components/responses/errorResponse"
+
+  /v1/domain/storage/listFiles:
+    get:
+      operationId: listFiles
+      tags:
+        - Files
+      summary: Lists files within an Entity ID
+      description: Lists all blobs contained within a specific folder inside a container.
+      parameters:
+        - $ref: "#/components/parameters/Authorization"
+        - $ref: "#/components/parameters/Ocp-Apim-Subscription-Key"
+        - $ref: "#/components/parameters/x-gssp-transactionid"
+        - $ref: "#/components/parameters/containerName"
+        - $ref: "#/components/parameters/entityId"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/listFilesResponse"
+              examples:
+                success:
+                  summary: Successful list example
+                  value:
+                    items:
+                      - name: "report-2025-01.pdf"
+                        size: 1048576
+                        createdOn: "2025-01-15T10:20:30Z"
+                        lastModified: "2025-02-01T08:05:00Z"
+                      - name: "image-001.png"
+                        size: 24576
+                        createdOn: "2025-01-20T12:00:00Z"
+                        lastModified: "2025-01-21T09:30:00Z"
+                    metadata:
+                      gsspTrxId: "trx-1234567890"
+                      apiName: "listFiles"
+                      timestamp: "2025-02-01T08:05:10Z"
+        "400":
+          $ref: "#/components/responses/errorResponse"
+        "404":
+          $ref: "#/components/responses/errorResponse"
+        "500":
+          $ref: "#/components/responses/errorResponse"
+
+  /v1/domain/storage/soyio/sync:
+    post:
+      operationId: runSoyioSync
+      tags:
+        - Soyio Sync
+      summary: Runs one incremental Soyio export sync to CDZ/DataHub
+      description: |-
+        MVP orchestration contract.
+        Designed for scheduler invocation every 6 hours.
+        This endpoint does not receive file uploads; it orchestrates Soyio export download and Blob persistence.
+        Runtime size guardrail is controlled by soyio.max-download-bytes.
+      parameters:
+        - $ref: "#/components/parameters/Authorization"
+        - $ref: "#/components/parameters/Ocp-Apim-Subscription-Key"
+        - $ref: "#/components/parameters/x-gssp-transactionid"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/soyioSyncRequest"
+      responses:
+        "200":
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/soyioSyncResponse"
+        "202":
+          description: Sync accepted for execution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/soyioSyncResponse"
+        "400":
+          $ref: "#/components/responses/errorResponse"
+        "500":
+          $ref: "#/components/responses/errorResponse"
+
+  /v1/domain/storage/soyio/sync/status:
+    get:
+      operationId: getSoyioSyncStatus
+      tags:
+        - Soyio Sync
+      summary: Retrieves last sync status and watermark
+      parameters:
+        - $ref: "#/components/parameters/Authorization"
+        - $ref: "#/components/parameters/Ocp-Apim-Subscription-Key"
+        - $ref: "#/components/parameters/x-gssp-transactionid"
+      responses:
+        "200":
+          description: Last sync status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/soyioSyncStatusResponse"
+        "404":
+          $ref: "#/components/responses/errorResponse"
+        "500":
+          $ref: "#/components/responses/errorResponse"
+
+  /v1/domain/storage/soyio/api-keys:
+    get:
+      operationId: listSoyioApiKeys
+      tags:
+        - Soyio Sync
+      summary: Lista API keys de Soyio usando credenciales runtime de Storage
+      parameters:
+        - $ref: "#/components/parameters/Authorization"
+        - $ref: "#/components/parameters/Ocp-Apim-Subscription-Key"
+        - $ref: "#/components/parameters/x-gssp-transactionid"
+      responses:
+        "200":
+          description: Lista de API keys obtenida desde Soyio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/soyioApiKeysResponse"
+        "401":
+          $ref: "#/components/responses/errorResponse"
+        "403":
+          $ref: "#/components/responses/errorResponse"
+        "500":
+          $ref: "#/components/responses/errorResponse"
+
+components:
+  parameters:
+    Authorization:
+      name: Authorization
+      in: header
+      required: true
+      schema:
+        type: string
+      description: "Bearer {token} para la autorizacion de la solicitud"
+
+    Ocp-Apim-Subscription-Key:
+      name: Ocp-Apim-Subscription-Key
+      in: header
+      required: true
+      schema:
+        type: string
+      description: "Clave de suscripcion para el acceso al API Management"
+
+    x-gssp-transactionid:
+      name: x-gssp-transactionid
+      in: header
+      required: true
+      schema:
+        type: string
+      description: "Identificador de trazabilidad de la transaccion"
+
+    containerName:
+      name: containerName
+      in: query
+      required: true
+      schema:
+        type: string
+      description: "Nombre del contenedor en Azure Storage"
+
+    entityId:
+      name: entityId
+      in: query
+      required: true
+      schema:
+        type: string
+      description: "Identificador de la entidad o ruta de la carpeta"
+
+    fileName:
+      name: fileName
+      in: query
+      required: true
+      schema:
+        type: string
+      description: "Nombre del archivo con su extension"
+
+  responses:
+    errorResponse:
+      description: Respuesta de error estandar
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/errorResponse"
+
+  schemas:
+    errorResponse:
+      type: object
+      description: Estructura detallada de errores
+      properties:
+        errors:
+          type: array
+          description: Lista de errores devueltos por el sistema
+          items:
+            $ref: "#/components/schemas/errorDetail"
+
+    errorDetail:
+      type: object
+      description: Detalle individual de un error
+      properties:
+        code:
+          type: string
+          description: Codigo identificador del error
+        description:
+          type: string
+          description: Texto descriptivo de la falla
+        element:
+          type: string
+          description: Campo o parametro relacionado al error
+        extension:
+          $ref: "#/components/schemas/errorExtension"
+
+    errorExtension:
+      type: object
+      description: Informacion tecnica adicional del proveedor
+      properties:
+        providerCode:
+          type: string
+          description: Codigo original del proveedor del servicio
+        providerMessage:
+          type: string
+          description: Mensaje original del proveedor del servicio
+
+    sendFileRequestBody:
+      type: object
+      required: [containerName, entityId, fileName, base64]
+      properties:
+        containerName:
+          type: string
+          description: "Contenedor destino"
+        entityId:
+          type: string
+          description: "Carpeta destino"
+        fileName:
+          type: string
+          description: "Nombre del archivo"
+        base64:
+          type: string
+          description: "Contenido en Base64"
+
+    sendFileMultipartRequestBody:
+      type: object
+      required: [containerName, entityId, file]
+      properties:
+        containerName:
+          type: string
+          description: "Contenedor destino"
+        entityId:
+          type: string
+          description: "Carpeta destino"
+        file:
+          type: string
+          format: binary
+          description: "Archivo binario"
+
+    sendFileResponse:
+      type: object
+      description: Respuesta tras la subida exitosa de un archivo
+      properties:
+        message:
+          type: string
+          description: "Mensaje de exito"
+        statusCode:
+          type: string
+          description: "Codigo de resultado"
+        metadata:
+          $ref: "#/components/schemas/metadata"
+
+    retrieveFileResponse:
+      type: object
+      description: Respuesta con los datos del archivo recuperado
+      properties:
+        entityId:
+          type: string
+          description: "ID de la entidad"
+        fileName:
+          type: string
+          description: "Nombre del archivo"
+        base64:
+          type: string
+          description: "Contenido en Base64"
+        metadata:
+          $ref: "#/components/schemas/metadata"
+
+    listFilesResponse:
+      type: object
+      description: Objeto de respuesta que contiene la lista de recursos encontrados
+      required: [items, metadata]
+      properties:
+        items:
+          type: array
+          description: Coleccion de archivos encontrados en la ruta especificada
+          items:
+            $ref: "#/components/schemas/fileItem"
+        metadata:
+          $ref: "#/components/schemas/metadata"
+
+    fileItem:
+      type: object
+      description: Informacion individual de un archivo en el almacenamiento
+      required: [name, size]
+      properties:
+        name:
+          type: string
+          description: "Nombre del blob o archivo"
+        size:
+          type: integer
+          format: int64
+          description: "Tamano del archivo en bytes"
+        createdOn:
+          type: string
+          format: date-time
+          description: "Fecha de creacion del archivo"
+        lastModified:
+          type: string
+          format: date-time
+          description: "Fecha de la ultima modificacion"
+
+    metadata:
+      type: object
+      description: Metadatos de auditoria y trazabilidad
+      required: [gsspTrxId, apiName, timestamp]
+      properties:
+        gsspTrxId:
+          type: string
+          description: "ID unico de transaccion"
+        apiName:
+          type: string
+          description: "Nombre del API invocada"
+        timestamp:
+          type: string
+          format: date-time
+          description: "Fecha y hora de la respuesta"
+
+    soyioSyncRequest:
+      type: object
+      description: Parametros opcionales para ejecucion manual o scheduler
+      properties:
+        resource:
+          type: string
+          description: "Recurso Soyio a exportar"
+          example: consent_actions
+        outputFormat:
+          type: string
+          enum: [json, csv]
+          default: json
+        fromDateTime:
+          type: string
+          format: date-time
+          description: "Override opcional del inicio de ventana"
+        toDateTime:
+          type: string
+          format: date-time
+          description: "Override opcional del fin de ventana"
+        overlapMinutes:
+          type: integer
+          format: int32
+          minimum: 0
+          default: 10
+        segmentMinutes:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 60
+          description: "Tamano de cada segmento de sincronizacion"
+        maxSegmentsPerRun:
+          type: integer
+          format: int32
+          minimum: 1
+          default: 96
+          description: "Cantidad maxima de segmentos permitidos por ejecucion"
+
+    soyioSyncResponse:
+      type: object
+      description: Resultado de ejecucion de sincronizacion
+      properties:
+        runId:
+          type: string
+        status:
+          type: string
+          enum: [accepted, running, completed, failed]
+        resource:
+          type: string
+        exportId:
+          type: string
+        recordsCount:
+          type: integer
+          format: int64
+        fromDateTime:
+          type: string
+          format: date-time
+        toDateTime:
+          type: string
+          format: date-time
+        segmentMinutes:
+          type: integer
+          format: int32
+        segmentsPlanned:
+          type: integer
+          format: int32
+        segmentsProcessed:
+          type: integer
+          format: int32
+        segments:
+          type: array
+          items:
+            $ref: "#/components/schemas/soyioSyncSegmentResult"
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+        metadata:
+          $ref: "#/components/schemas/metadata"
+
+    soyioSyncSegmentResult:
+      type: object
+      description: Resultado por segmento en una corrida de sync
+      properties:
+        segmentIndex:
+          type: integer
+          format: int32
+        fromDateTime:
+          type: string
+          format: date-time
+        toDateTime:
+          type: string
+          format: date-time
+        exportId:
+          type: string
+        recordsCount:
+          type: integer
+          format: int64
+        fileName:
+          type: string
+
+    soyioSyncStatusResponse:
+      type: object
+      description: Estado de la ultima corrida conocida
+      properties:
+        lastSuccessfulSyncAt:
+          type: string
+          format: date-time
+        lastAttemptAt:
+          type: string
+          format: date-time
+        lastStatus:
+          type: string
+          enum: [completed, failed, running, never]
+        lastExportId:
+          type: string
+        resource:
+          type: string
+        watermarkSource:
+          type: string
+          description: "Origen del estado, por ejemplo blob-control-file"
+        metadata:
+          $ref: "#/components/schemas/metadata"
+
+    soyioApiKeysResponse:
+      type: object
+      description: Proxy de respuesta de Soyio para listado de API keys
+      properties:
+        api_keys:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        metadata:
+          $ref: "#/components/schemas/metadata"

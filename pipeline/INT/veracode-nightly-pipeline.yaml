@@ -1,0 +1,63 @@
+name: $(SourceBranchName)_$(name_pl)_$(date:yyyyMMdd)$(rev:.r)
+
+trigger: none
+pr: none
+schedules:
+- cron: '0 0 * * *'
+  displayName: 'Veracode Nightly run'
+  branches:
+    include:
+    - Release/int
+    exclude:
+    - develop
+    - uat
+    - Release/qa
+    - prod
+    - master 
+
+resources: 
+ repositories:
+ - repository: self
+   name: $(project_ext)/$(repo_ext)
+   type: git
+   ref: $(branch_ext)
+ - repository: Chile-Insurance-DataHub-Pipelines
+   name: Chile-Insurance-DataHub-Pipelines
+   type: git
+   ref: 'refs/heads/feature_create_pipelines_chile'
+
+variables:
+  dockerdescription: "Chile Insurance Agreemtn System API image for Datahub"
+  dockerproductversion: 1.0
+  image_name: api_storage_domain
+  image_tag: "v0.1.$(Build.BuildId)"
+  name_pl: "Build-storage-App"
+  ARTIFACTORY_SERVICE_CONNECTION: Artifactory
+  CLUSTER_NAME: AZLATMES01KUB13545NP04
+  deployment: eosclin-storage-service
+  env: INT
+  INSTALL_KUBELOGIN: TRUE
+  KUBE_CONFIG_PATH: $(Agent.TempDirectory)/config-$(System.JobId)
+  KUBELOGIN_VERSION: v0.0.17
+  namespace: default
+  #pod: eosmx-billing-service-8864dc5-f462h
+  RG_NAME: RG_13545_CLINSCONSUMP_INT
+  SCRIPT_TYPE: ps
+  service:  eosclin-storage-service
+  SERVICE_CONNECTION: SPAZDO13545NP01
+
+  #Veracode Section
+  APP_NAME: 'Agreement'
+  JAR_NAME: eos-chile-storage-service-0.1.0
+  DOCKER_REPO: '13545-cdh/eos-chile'
+  CURRENT_ENV: 'INT'
+  ACR_NAME: 'acr13545e1in02'
+  ACR_FULLNAME: 'acr13545e1in02.azurecr.io/chile-in'
+  VERACODE_PROFILE: '13545_Chile Data Hub - Agreement API'
+  SANDBOX_NAME: 'Release Candidate Sandbox'
+
+pool:
+  name: Linux
+
+stages:
+- template: templates/veracode-nightly-template.yml@Chile-Insurance-DataHub-Pipelines

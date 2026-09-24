@@ -1,0 +1,65 @@
+flowchart LR
+
+    subgraph SCH["Scheduler"]
+        S["Scheduler"]
+    end
+
+    subgraph API["Storage API"]
+        A1["POST /v1/domain/storage/soyio/sync"]
+        A2["Read SOYIO_API_KEY"]
+        A3["Read watermark.json"]
+        A4["Compute incremental window + overlap"]
+        A5["POST /api/v1/exports"]
+        A6["GET /api/v1/exports/{id}<br/>(poll loop)"]
+        A7["Download file from download_url"]
+        A8["Upload dataset"]
+        A9["Update watermark.json<br/>(ONLY on success)"]
+    end
+
+    subgraph SOYIO["Soyio API"]
+        Y1["Exports API"]
+        Y2["Export Status"]
+        Y3["download_url"]
+    end
+
+    subgraph BLOB["Azure Blob Storage"]
+        B1["Blob Control"]
+        B2["Blob CDZ"]
+    end
+
+    subgraph KV["Secrets/Key Vault"]
+        K1["SOYIO_API_KEY"]
+    end
+
+    S --> A1
+    A1 --> A2
+    A2 --> K1
+    A2 --> A3
+    A3 --> B1
+    A3 --> A4
+    A4 --> A5
+    A5 --> Y1
+    A5 --> A6
+    A6 --> Y2
+    A6 --> A7
+    A7 --> Y3
+    A7 --> A8
+    A8 --> B2
+    A8 --> A9
+    A9 --> B1
+
+    E1["401/403"]
+    E2["export.failed"]
+    E3["timeout"]
+    E4["file > soyio.max-download-bytes"]
+    E5["upload failure to CDZ"]
+
+    A5 -.-> E1
+    A6 -.-> E2
+    A6 -.-> E3
+    A7 -.-> E4
+    A8 -.-> E5
+
+    L1["Solid = happy path"]
+    L2["Dotted = error path"]
+    L3["Watermark advances only on successful run"]

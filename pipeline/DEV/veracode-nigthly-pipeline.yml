@@ -1,0 +1,58 @@
+name: $(SourceBranchName)_$(name_pl)_$(date:yyyyMMdd)$(rev:.r)
+
+trigger: none
+pr: none
+schedules:
+- cron: '0 0 * * *'
+  displayName: Veracode Nightly run
+  branches:
+    include:
+    - develop
+    exclude:
+    - uat
+    - qa
+    - prod
+    - master 
+
+resources: 
+ repositories:
+ - repository: self
+   name: $(project_ext)/$(repo_ext)
+   type: git
+   ref: $(branch_ext)
+ - repository: Chile-Insurance-DataHub-Pipelines
+   name: Chile-Insurance-DataHub-Pipelines
+   type: git
+   ref: 'refs/heads/feature_create_pipelines_chile'
+
+variables:
+  dockerdescription: "Nano Storage App image for Datahub"
+  dockerproductversion: 1.0
+  image_name: api_storage_domain
+  image_tag: "v0.1.$(Build.BuildId)"
+  name_pl: "Build-storage-App"
+  CLUSTER_NAME: AZLATMES01KUB13545NP03
+  env: DEV
+  INSTALL_KUBELOGIN: TRUE
+  KUBE_CONFIG_PATH: $(Agent.TempDirectory)/config-$(System.JobId)
+  KUBELOGIN_VERSION: v0.0.17
+  RG_NAME: RG_13545_CLINSCONSUMP_DEV
+  SCRIPT_TYPE: ps
+  SERVICE_CONNECTION: SPAZDO13545NP01
+
+  #Veracode Section
+  APP_NAME: 'Storage'
+  JAR_NAME: 'eos-chile-storage-service-0.1.0'
+  DOCKER_REPO: '13545-cdh/eos-chile'
+  CURRENT_ENV: 'DEV'
+  ACR_NAME: 'acr13545e1dv01'
+  ACR_FULLNAME: 'acr13545e1dv01.azurecr.io/chile-in'
+  VERACODE_PROFILE: '13545_Chile Data Hub - Storage API'
+  SANDBOX_NAME: 'Development Sandbox'
+
+
+pool:
+  name: Linux
+
+stages:
+- template: templates/veracode-nightly-template.yml@Chile-Insurance-DataHub-Pipelines

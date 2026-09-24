@@ -1,0 +1,81 @@
+# Application Details
+server:
+  port: 8080
+spring:
+  application:
+    name: eos-chile-storage-service
+  main:
+    allow-bean-definition-overriding: true
+  jackson:
+    serialization-features:
+      WRITE_DATES_AS_TIMESTAMPS: false
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 5MB
+      max-request-size: 10MB
+            
+# Header info
+header:
+  transactionId-key: x-gssp-transactionid
+
+# Hostname
+host:
+  name: https://latam.internal.apis.metlife.com/chile/insurance/api/storage
+
+storage:
+  connection-string: $(STORAGE_CONN_STR)
+
+
+soyio:
+  base-url: $(SOYIO_URL_BASE)
+  api-key: $(SOYIO_API_KEY)
+  default-resource: consent_actions
+  default-output-format: csv
+  default-overlap-minutes: 10
+  initial-lookback-hours: 6
+  poll-interval-seconds: 20
+  poll-timeout-seconds: 900
+  max-download-bytes: 104857600
+  export-order-by: created_at DESC
+  target-container: rdz
+  target-entity-id: soyio
+  control-container: cdz
+  control-entity-id: soyio/control
+  control-file-name: watermark.json
+  user-reference:
+    base-url: https://latam.internal.apis.metlife.com/soyio-cm
+    resolve-path: /v1/user-references/resolve
+    tenant-id: $(SOYIO_USER_REFERENCE_TENANT_ID)
+    environment: prod
+    client-id: $(SOYIO_USER_REFERENCE_CLIENT_ID)
+    scope: $(SOYIO_USER_REFERENCE_SCOPE)
+    client-assertion-url: $(SOYIO_USER_REFERENCE_CLIENT_ASSERTION_URL)
+    api-key: $(SOYIO_USER_REFERENCE_API_KEY)
+    subscription-key: $(SOYIO_USER_REFERENCE_SUBSCRIPTION_KEY)
+    batch-size: 50
+    delay-millis: 100
+    max-retries: 2
+  normalized-output:
+    container: ddz
+    entity-id: soyio/agreements
+
+# plugin configuration
+pluginConfiguration:
+  general:
+    classPath:
+
+# Eureka discovery
+eureka:
+  instance:
+    hostName: 127.0.0.1
+  client:
+    enabled: false
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: false
+  
+# Dynamic groovy file locations
+jsonPath: src/dynamic/config/json
+tenantId: CLIN

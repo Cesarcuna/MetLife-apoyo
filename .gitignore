@@ -1,0 +1,14 @@
+/.project
+
+/.classpath
+
+.settings
+
+.gradle
+
+build
+
+bin
+run-local.ps1
+logs.txt
+logs.txt
